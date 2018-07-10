@@ -1,0 +1,208 @@
+<!doctype html> 
+<html lang="en"> 
+<head> 
+    <meta charset="UTF-8" />
+    <title>Making your first Phaser 3 Game - Part 1</title>
+    <script src="//cdn.jsdelivr.net/npm/phaser@3.1.1/dist/phaser.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+<script type="text/javascript">
+    var player;
+    var door;
+    var gold;
+    var bombs;
+    var textOver;
+    var soundjatuh;
+    var koinsound;
+    var groundGes;
+    var score = 0;
+    var jumpSound;
+    var textOver;
+    var scoreText;
+    var config = {
+        type: Phaser.AUTO,
+        width: 800,
+        height: 600,
+        physics: {
+            default: 'arcade',
+            arcade: {
+                gravity: { y: 330 },
+                debug: false
+            }
+        },
+        scene: {
+            preload: preload,
+            create: create,
+            update: update
+        }
+    };
+    var platforms;
+    var mate;
+    var game = new Phaser.Game(config);
+
+    function preload ()
+    {
+        this.load.image('background', 'assets/bggame.png');
+        this.load.image('ground', 'assets/bata.png');
+        this.load.image('coin', 'assets/coine.png');
+        this.load.image('bomb', 'assets/bomb.png');
+        this.load.image('plat', 'assets/plat.png');
+        this.load.image('platmin', 'assets/platmin.png');
+        this.load.audio('jump', 'assets/jump.mp3')
+        this.load.audio('dead', 'assets/mate.mp3')
+        this.load.audio('koin', 'assets/koinsound.mp3')
+        this.load.audio('koinJatuh', 'assets/koinjatuh.mp3')
+        this.load.spritesheet('miun','assets/miun.png',
+        { frameWidth: 32, frameHeight: 48 });
+    }
+
+    function create ()
+    {
+        this.add.image(400,400,'background');
+        this.physics.world.bounds.width = 1080;
+        this.physics.world.bounds.height = 600;
+        jumpSound = this.sound.add('jump')
+        koinsound = this.sound.add('koin')
+        mate = this.sound.add('dead')
+        soundjatuh = this.sound.add('koinJatuh')
+        platforms = this.physics.add.staticGroup({
+            key: 'ground',
+            repeat: 30,
+            setXY: { x: 20, y: 560, stepX: 40 }
+        });
+        platforms.children.iterate(function (child) {
+            child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8)).setScale(2).refreshBody();
+        
+        });
+        platforms.create(400,400,'plat');
+        platforms.create(100,340,'plat');
+        platforms.create(1060,250,'plat');
+        platforms.create(1030,90,'plat');
+        platforms.create(600,300,'plat');
+        platforms.create(660,80,'plat');
+        platforms.create(350,150,'platmin');
+        platforms.create(0,230,'plat');
+        platforms.create(820,230,'platmin');
+
+        player = this.physics.add.sprite(100, 450, 'miun');
+        player.setBounce(0.2);
+        player.setCollideWorldBounds(true);
+
+        this.anims.create({
+            key: 'right',
+            frames: this.anims.generateFrameNumbers('miun', { start: 5, end: 8 }),
+            frameRate: 10,
+            repeat: -1
+        });
+        this.anims.create({
+            key: 'left',
+            frames: this.anims.generateFrameNumbers('miun', { start: 0, end: 3 }),
+            frameRate: 10,
+            repeat: -1
+        });
+        this.anims.create({
+            key: 'turn',
+            frames: [ { key: 'miun', frame: 4 } ],
+            frameRate: 20
+        });
+        this.anims.create({
+            key: 'buka',
+            frames: [{key:'pintu', frame: 2 }],
+            frameRate: 10,
+            repeat: -1
+        });
+        gold = this.physics.add.group({
+            key:'coin',
+            repeat:20,
+            setXY:{x:30, y:10,stepX:50}
+        });
+        gold.children.iterate(function (child) {
+            child.setBounceY(Phaser.Math.FloatBetween(0.4, 0.8));
+            
+            if(gold.x===platforms.y){
+                soundjatuh.play();
+            }
+        });
+
+        scoreText = this.add.text(config.width/2-20, 16, 'score: 0', { fontSize: '32px', fill: '#fff' });
+        scoreText.fixedToCamera=true;
+        bombs = this.physics.add.group();
+        this.physics.add.collider(bombs, platforms);
+        this.physics.add.collider(gold, platforms);
+        this.physics.add.collider(player, platforms);
+        this.physics.add.overlap(player, gold, colectCoin,null,this);
+        this.physics.add.collider(player, bombs, hitBomb, null, this);
+        this.cameras.main.setBounds(0, 0, 1080, 600);
+        this.cameras.main.startFollow(player);
+        cursors = this.input.keyboard.createCursorKeys();
+
+    }    
+    function update ()
+    {
+        if(scoreText.x<16){
+            scoreText.x += 10;
+        }
+        if (cursors.right.isDown) {
+
+            player.setVelocityX(160);
+
+            player.anims.play('right', true);
+        }
+        else if (cursors.left.isDown){
+            player.setVelocityX(-160);
+            player.anims.play('left', true);
+        }
+        else
+        {
+            player.setVelocityX(0);
+            player.anims.play('turn', true);
+        }
+        
+        if (cursors.up.isDown && player.body.touching.down)
+        {
+            player.setVelocityY(-330);
+            jumpSound.play();
+        }
+    }
+    function colectCoin(player, coin){
+        score += 10;
+        scoreText.setText('Score : '+score);
+        coin.disableBody(true,true);
+        koinsound.play();
+        if(gold.countActive(true) === 0){
+            gold.children.iterate(function (child) {
+                child.enableBody(true, child.x, 0, true, true);
+                
+                if(gold.x===platforms.y){
+                    soundjatuh.play();
+                }
+            });
+            var x = (player.x < 400) ? Phaser.Math.Between(400, 800) : Phaser.Math.Between(0, 400);
+
+            var bomb = bombs.create(x, 16, 'bomb');
+            bomb.setBounce(1);
+            bomb.setCollideWorldBounds(true);
+            bomb.setVelocity(Phaser.Math.Between(-200, 200), 20);
+            bomb.allowGravity = false;
+        }
+        
+    }
+    function hitBomb (player, bomb)
+    {
+        this.physics.pause();
+        mate.play();
+        player.setTint(0xff0000);
+        player.anims.play('turn');
+        gameOver = true;
+        textOver = this.add.text(config.width/2-20, 39, 'score: 0', { fontSize: '32px', fill: '#fff' });
+        textOver.setText(' nah mate\nulang wah');
+   }
+</script>
+</body>
+</html>
